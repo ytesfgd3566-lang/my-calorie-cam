@@ -3,138 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卡路里识别 (自动匹配版)</title>
+    <title>错误诊断模式</title>
     <style>
-        body { padding: 20px; font-family: sans-serif; background-color: #f4f4f9; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        
-        input, button { width: 100%; box-sizing: border-box; margin-bottom: 15px; border-radius: 8px; }
-        
-        input[type="password"] { padding: 15px; border: 1px solid #ddd; background: #fafafa; }
-        
-        /* 保持这个丑但好用的原生上传按钮 */
-        input[type="file"] { padding: 10px; background: #e0e0e0; display: block; }
-
-        button { padding: 15px; background-color: #4CAF50; color: white; border: none; font-size: 18px; font-weight: bold; }
-        button:disabled { background-color: #ccc; }
-
-        #status-log { font-size: 12px; color: #666; margin-bottom: 10px; font-family: monospace; }
-        #result { padding: 15px; background: #e8f5e9; border-radius: 8px; white-space: pre-wrap; display: none; border-left: 5px solid #4CAF50; line-height: 1.6;}
-        img { max-width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
+        body { padding: 20px; font-family: monospace; background: #333; color: #0f0; }
+        .container { background: #000; padding: 20px; border: 1px solid #444; }
+        input, button { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+        input[type="password"] { background: #222; border: 1px solid #555; color: white; }
+        input[type="file"] { background: #444; color: white; }
+        button { background: #d32f2f; color: white; font-weight: bold; border: none; font-size: 16px; }
+        #log-box { white-space: pre-wrap; word-break: break-all; margin-top: 20px; border-top: 1px dashed #666; padding-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align: center; margin-top: 0;">🥗 卡路里识别</h2>
+    <h3 style="margin-top:0;">🚑 深度诊断模式</h3>
     
-    <input type="password" id="api-key" placeholder="在此粘贴 API Key">
+    <label>1. API Key:</label>
+    <input type="password" id="api-key" placeholder="粘贴 Key...">
 
-    <label style="font-weight:bold;">拍照 / 选图：</label>
+    <label>2. 选图:</label>
     <input type="file" id="file-upload" accept="image/*">
-    <img id="preview-img" src="">
+    <div id="img-status" style="color: yellow; margin-bottom: 10px;">未选图</div>
 
-    <div id="status-log"></div>
+    <button id="analyze-btn">开始诊断 (显示真实报错)</button>
 
-    <button id="analyze-btn">🚀 开始分析</button>
-
-    <div id="result"></div>
+    <div id="log-box">等待运行...</div>
 </div>
 
 <script>
     const fileInput = document.getElementById('file-upload');
-    const previewImg = document.getElementById('preview-img');
     const analyzeBtn = document.getElementById('analyze-btn');
-    const resultDiv = document.getElementById('result');
-    const statusLog = document.getElementById('status-log');
+    const logBox = document.getElementById('log-box');
     const apiKeyInput = document.getElementById('api-key');
+    const imgStatus = document.getElementById('img-status');
 
     let base64Image = null;
     let mimeType = null;
+
+    // 日志打印助手
+    function log(msg) {
+        logBox.innerHTML += msg + "\n----------------\n";
+    }
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            previewImg.style.display = 'block';
             base64Image = e.target.result.split(',')[1];
             mimeType = e.target.result.split(';')[0].split(':')[1];
-            statusLog.innerText = "图片已就绪";
+            imgStatus.innerText = "✅ 图片已加载: " + mimeType;
         }
         reader.readAsDataURL(file);
     });
 
     analyzeBtn.addEventListener('click', async function() {
         const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) { alert("请填 Key"); return; }
-        if (!base64Image) { alert("请选图"); return; }
+        if (!apiKey) { log("❌ 错误: 未填 API Key"); return; }
+        if (!base64Image) { log("❌ 错误: 未选图片"); return; }
 
+        logBox.innerHTML = "🚀 开始向 Google 发送请求...\n";
         analyzeBtn.disabled = true;
-        resultDiv.style.display = 'none';
-        
-        // ★★★ 核心：这里列出了所有可能的模型名字 ★★★
-        // 系统会按顺序一个一个试，直到成功
-        const modelList = [
-            "gemini-1.5-flash-001", // 先试具体版本号
-            "gemini-1.5-flash-002", // 再试新版
-            "gemini-1.5-flash",     // 再试简称
-            "gemini-1.5-pro",       // 最后试 Pro 版
-            "gemini-1.5-pro-001"
-        ];
 
-        let success = false;
+        // 我们只测一个最稳的模型，看它报什么错
+        const modelName = "gemini-1.5-flash"; 
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-        for (const modelName of modelList) {
-            statusLog.innerText = `🔄 正在尝试连接模型: ${modelName} ...`;
-            
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-                
-                const requestBody = {
-                    contents: [{
-                        parts: [
-                            { text: "你是营养师。请分析图片食物：名称、热量、营养成分(碳水/蛋白/脂肪)和建议。请用中文回答。" },
-                            { inline_data: { mime_type: mimeType, data: base64Image } }
-                        ]
-                    }]
-                };
+        try {
+            const requestBody = {
+                contents: [{
+                    parts: [
+                        { text: "test" }, // 发送最简单的测试文本
+                        { inline_data: { mime_type: mimeType, data: base64Image } }
+                    ]
+                }]
+            };
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
-                });
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
 
-                const data = await response.json();
+            const data = await response.json();
 
-                if (data.error) {
-                    // 如果是“未找到”或“不支持”，就抛出错误，让循环继续试下一个
-                    throw new Error(data.error.message);
-                }
-
-                // 如果成功了：
-                const text = data.candidates[0].content.parts[0].text;
-                resultDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-                resultDiv.style.display = 'block';
-                statusLog.innerText = `✅ 成功连接模型: ${modelName}`;
-                success = true;
-                break; // 成功了就跳出循环，不再试后面的了
-
-            } catch (err) {
-                console.log(`${modelName} 失败: ${err.message}`);
-                // 继续试下一个...
+            // ★★★ 关键：无论成功失败，直接把后台返回的原始数据打印出来 ★★★
+            if (!response.ok || data.error) {
+                log("❌ 请求失败！");
+                log("状态码 (Status): " + response.status);
+                log("报错详情 (Error Details):\n" + JSON.stringify(data.error, null, 2));
+            } else {
+                log("✅ 神奇，竟然成功了！\n");
+                log(data.candidates[0].content.parts[0].text);
             }
-        }
 
-        if (!success) {
-            statusLog.innerText = "❌ 所有模型都尝试失败。";
-            alert("所有模型都无法连接，请检查 API Key 是否正确，或网络是否通畅。");
+        } catch (error) {
+            log("❌ 网络/代码层面的严重错误:");
+            log(error.message);
+        } finally {
+            analyzeBtn.disabled = false;
         }
-
-        analyzeBtn.disabled = false;
-        analyzeBtn.innerText = "🚀 开始分析";
     });
 </script>
 
