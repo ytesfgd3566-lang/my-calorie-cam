@@ -3,58 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卡路里识别 (万能切换版)</title>
+    <title>AI 卡路里 (自由输入版)</title>
     <style>
-        body { padding: 20px; font-family: -apple-system, sans-serif; background-color: #f5f5f7; }
-        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
+        body { padding: 20px; font-family: -apple-system, sans-serif; background-color: #f0f2f5; }
+        .container { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
         
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        h2 { text-align: center; color: #1a73e8; margin-top: 0; }
         
-        /* 输入框 */
-        input[type="password"], select { 
-            width: 100%; padding: 12px; margin-bottom: 20px; 
-            border: 1px solid #ccc; border-radius: 8px; 
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #444; font-size: 14px; }
+        
+        /* 输入框通用样式 */
+        input[type="password"], input[type="text"] { 
+            width: 100%; padding: 14px; margin-bottom: 20px; 
+            border: 1px solid #ddd; border-radius: 10px; 
             font-size: 16px; background: #fff; box-sizing: border-box;
+            transition: border 0.3s;
+        }
+        input:focus { border-color: #1a73e8; outline: none; }
+
+        /* 强调模型输入框 */
+        #model-name { 
+            background-color: #e8f0fe; 
+            color: #1967d2; 
+            font-family: monospace; 
+            font-weight: bold;
         }
 
-        /* 重点：原生上传按钮，丑但好用 */
+        /* 原生上传按钮 */
         input[type="file"] { 
-            width: 100%; padding: 10px; margin-bottom: 20px; 
-            background: #e1e1e1; border-radius: 8px; box-sizing: border-box;
+            width: 100%; padding: 12px; margin-bottom: 20px; 
+            background: #f1f3f4; border-radius: 10px; box-sizing: border-box;
         }
 
         button { 
-            width: 100%; padding: 15px; 
-            background-color: #007AFF; color: white; 
-            border: none; border-radius: 10px; 
+            width: 100%; padding: 16px; 
+            background-color: #1a73e8; color: white; 
+            border: none; border-radius: 12px; 
             font-size: 18px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 6px rgba(26,115,232,0.3);
         }
-        button:disabled { background-color: #ccc; }
+        button:disabled { background-color: #ccc; box-shadow: none; }
 
-        #result { margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 10px; border-left: 5px solid #4CAF50; line-height: 1.6; display: none; }
-        #error-log { margin-top: 20px; padding: 10px; background: #ffebee; color: #c62828; border-radius: 8px; font-size: 14px; display: none; }
-        img { max-width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
+        #result { margin-top: 25px; padding: 20px; background: #e6f4ea; border-radius: 12px; border: 1px solid #ceead6; line-height: 1.6; display: none; color: #0d652d; }
+        #error-log { margin-top: 20px; padding: 15px; background: #fce8e6; color: #c5221f; border-radius: 12px; font-size: 14px; display: none; border: 1px solid #fad2cf; white-space: pre-wrap; }
+        img { max-width: 100%; margin-top: 10px; border-radius: 10px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align: center;">🥗 AI 卡路里识别</h2>
+    <h2>🥗 AI 卡路里识别</h2>
     
-    <label>1. API Key:</label>
-    <input type="password" id="api-key" placeholder="粘贴 Key...">
+    <label>1. 新的 API Key (必须是新项目的):</label>
+    <input type="password" id="api-key" placeholder="粘贴以 AIza 开头的 Key...">
 
-    <label>2. 选择 AI 模型 (关键!):</label>
-    <select id="model-select">
-        <option value="gemini-1.5-flash-001">Gemini 1.5 Flash-001 (推荐)</option>
-        <option value="gemini-1.5-flash-002">Gemini 1.5 Flash-002 (新版)</option>
-        <option value="gemini-flash-latest">Gemini Flash Latest (最新别名)</option>
-        <option value="gemini-1.5-pro">Gemini 1.5 Pro (备用)</option>
-        <option value="gemini-1.5-pro-001">Gemini 1.5 Pro-001 (旧版)</option>
-        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp (实验版)</option>
-    </select>
+    <label>2. 模型名称 (如果报错，手动修改这里):</label>
+    <input type="text" id="model-name" value="gemini-1.5-flash">
+    <p style="font-size:12px; color:#666; margin-top:-15px; margin-bottom:20px;">常用备选: gemini-flash-latest 或 gemini-1.5-pro</p>
 
-    <label>3. 拍照/选图:</label>
+    <label>3. 拍照 / 选图:</label>
     <input type="file" id="file-upload" accept="image/*">
     <img id="preview-img" src="">
 
@@ -71,7 +78,7 @@
     const resultDiv = document.getElementById('result');
     const errorLog = document.getElementById('error-log');
     const apiKeyInput = document.getElementById('api-key');
-    const modelSelect = document.getElementById('model-select');
+    const modelInput = document.getElementById('model-name');
 
     let base64Image = null;
     let mimeType = null;
@@ -91,14 +98,13 @@
 
     analyzeBtn.addEventListener('click', async function() {
         const apiKey = apiKeyInput.value.trim();
-        const model = modelSelect.value; // 获取下拉菜单选中的模型
+        let model = modelInput.value.trim(); // 获取用户手动输入的模型名
 
-        if (!apiKey) { alert("请填 Key"); return; }
-        if (!base64Image) { alert("请选图"); return; }
+        if (!apiKey) { alert("请先填入新的 API Key"); return; }
+        if (!base64Image) { alert("请先选择图片"); return; }
 
-        // 重置界面
         analyzeBtn.disabled = true;
-        analyzeBtn.innerText = "分析中...";
+        analyzeBtn.innerText = "正在分析...";
         resultDiv.style.display = 'none';
         errorLog.style.display = 'none';
 
@@ -108,7 +114,7 @@
             const requestBody = {
                 contents: [{
                     parts: [
-                        { text: "你是营养师。分析食物：名称、热量、营养(碳水/蛋白/脂肪)及建议。中文回答。" },
+                        { text: "你是营养师。分析图片食物：名称、热量、营养(碳水/蛋白/脂肪)及建议。请用中文回答。" },
                         { inline_data: { mime_type: mimeType, data: base64Image } }
                     ]
                 }]
@@ -123,19 +129,28 @@
             const data = await response.json();
 
             if (data.error) {
+                // 如果报错，抛出异常
                 throw new Error(data.error.message);
             }
 
-            // 成功！
             const text = data.candidates[0].content.parts[0].text;
             resultDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
             resultDiv.style.display = 'block';
-            analyzeBtn.innerText = "✅ 成功";
+            analyzeBtn.innerText = "✅ 分析成功";
 
         } catch (error) {
-            errorLog.innerText = `❌ 模型 [${model}] 失败:\n${error.message}\n\n👉 建议：请在上方下拉菜单换一个模型再试！`;
+            let errorMsg = error.message;
+            let advice = "";
+
+            if (errorMsg.includes("not found")) {
+                advice = "👉 建议：模型名字不对。请尝试在上方蓝色框里输入 'gemini-flash-latest' 再试。";
+            } else if (errorMsg.includes("quota") || errorMsg.includes("limit")) {
+                advice = "👉 建议：这个 Key 的额度用光了，或者必须去 AI Studio 创建一个【新项目】的 Key。";
+            }
+
+            errorLog.innerText = `❌ 出错了:\n${errorMsg}\n\n${advice}`;
             errorLog.style.display = 'block';
-            analyzeBtn.innerText = "❌ 失败，请换模型";
+            analyzeBtn.innerText = "❌ 失败 (点击重试)";
         } finally {
             analyzeBtn.disabled = false;
         }
