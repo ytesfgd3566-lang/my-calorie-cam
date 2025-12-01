@@ -5,39 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI 膳食分析助手</title>
     <style>
-        :root { --primary: #4CAF50; --bg: #f5f7fa; }
+        :root { --primary: #2196F3; --bg: #f0f4f8; } /* 换个蓝色主题，代表冷静 */
         body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; margin: 0; color: #333; }
         .card { background: white; max-width: 600px; margin: 0 auto; padding: 25px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         h2 { text-align: center; color: #2c3e50; margin-top: 0; }
         
-        /* 输入框样式 */
         .input-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; color: #555; }
         input[type="password"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; background: #fafafa; }
         
-        /* 漂亮的上传按钮 */
         .upload-btn-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; }
-        .btn-upload { border: 2px dashed #4CAF50; color: #4CAF50; background-color: #f1f8e9; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; width: 100%; cursor: pointer; text-align: center; box-sizing: border-box; }
+        .btn-upload { border: 2px dashed var(--primary); color: var(--primary); background-color: #e3f2fd; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; width: 100%; cursor: pointer; text-align: center; box-sizing: border-box; }
         input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
         
-        /* 预览图 */
         #preview-img { max-width: 100%; margin-top: 15px; border-radius: 12px; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         
-        /* 分析按钮 */
-        #analyze-btn { width: 100%; padding: 16px; background: #4CAF50; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; transition: background 0.3s; display: none; }
-        #analyze-btn:active { background: #388E3C; }
+        #analyze-btn { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 20px; cursor: pointer; transition: background 0.3s; display: none; }
         #analyze-btn:disabled { background: #ccc; cursor: not-allowed; }
 
-        /* 结果显示 */
-        #result-box { margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 5px solid #4CAF50; white-space: pre-wrap; line-height: 1.6; display: none; }
+        #result-box { margin-top: 25px; padding: 20px; background: #e8f5e9; border-radius: 12px; border-left: 5px solid #4CAF50; white-space: pre-wrap; line-height: 1.6; display: none; }
         .loading { text-align: center; margin-top: 20px; color: #666; display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>🥗 AI 卡路里识别</h2>
-    <p style="text-align: center; color: #888; font-size: 14px;">Powered by Gemini 2.0 Flash</p>
+    <h2>🥗 AI 卡路里识别 (标准版)</h2>
+    <p style="text-align: center; color: #888; font-size: 14px;">Powered by Gemini 1.5 Flash (免费配额版)</p>
 
     <div class="input-group">
         <label>第一步：输入 API Key</label>
@@ -55,7 +49,7 @@
 
     <button id="analyze-btn">🔍 开始分析热量</button>
 
-    <div class="loading" id="loading">⏳ 正在通过 Gemini 2.0 分析...</div>
+    <div class="loading" id="loading">⏳ 正在分析 (使用 1.5 Flash)...</div>
     <div id="result-box"></div>
 </div>
 
@@ -70,7 +64,6 @@
     let base64Image = null;
     let mimeType = null;
 
-    // 图片处理
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -88,7 +81,6 @@
         reader.readAsDataURL(file);
     });
 
-    // 分析请求
     analyzeBtn.addEventListener('click', async function() {
         const apiKey = apiKeyInput.value.trim();
         if (!apiKey) { alert("请先输入 API Key"); return; }
@@ -98,42 +90,11 @@
         resultBox.style.display = 'none';
 
         try {
-            // ★★★ 这里使用了你截图里确认存在的 gemini-2.0-flash ★★★
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            // ★★★ 核心修改：改回了最稳的 gemini-1.5-flash ★★★
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
             const requestBody = {
                 contents: [{
                     parts: [
                         { text: "你是专业营养师。请分析图片食物：\n1. 食物名称\n2. 预估热量(kcal)\n3. 营养成分(碳水/蛋白/脂肪)\n4. 健康建议。\n请用简洁友好的中文回答。" },
-                        { inline_data: { mime_type: mimeType, data: base64Image } }
-                    ]
-                }]
-            };
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            const data = await response.json();
-
-            if (data.error) throw new Error(data.error.message);
-
-            const text = data.candidates[0].content.parts[0].text;
-            
-            // 简单美化输出
-            resultBox.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-            resultBox.style.display = 'block';
-
-        } catch (error) {
-            alert("出错了: " + error.message);
-        } finally {
-            analyzeBtn.disabled = false;
-            loading.style.display = 'none';
-        }
-    });
-</script>
-
-</body>
-</html>
+                        { inline_data: { mime_type
