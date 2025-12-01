@@ -2,284 +2,133 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 膳食分析助手</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡路里识别 (极简版)</title>
     <style>
-        :root {
-            --primary-color: #4CAF50;
-            --bg-color: #f5f5f7;
-            --card-bg: #ffffff;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            text-align: center;
-            font-size: 24px;
-            margin-bottom: 5px;
-            color: #2c3e50;
-        }
-
-        p.subtitle {
-            text-align: center;
-            color: #7f8c8d;
-            font-size: 14px;
-            margin-bottom: 25px;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        input[type="password"], input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-
-        /* 隐藏原生文件上传按钮，自定义样式 */
-        input[type="file"] {
-            display: none;
-        }
-
-        .upload-btn {
-            display: block;
-            width: 100%;
-            padding: 15px;
-            background-color: #e8f5e9;
-            color: var(--primary-color);
-            border: 2px dashed var(--primary-color);
-            border-radius: 12px;
-            text-align: center;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-            box-sizing: border-box;
-        }
-
-        .upload-btn:active {
-            background-color: #c8e6c9;
-        }
-
-        .preview-container {
-            margin-top: 15px;
-            text-align: center;
-            display: none;
-        }
-
-        #preview-img {
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        button#analyze-btn {
-            width: 100%;
-            padding: 15px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 20px;
-            cursor: pointer;
-            display: none; /* 上传图片后显示 */
-        }
-
-        button#analyze-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        .result-box {
-            margin-top: 25px;
-            padding: 20px;
-            background-color: #f8f9fa;
-            border-radius: 12px;
-            border-left: 5px solid var(--primary-color);
-            white-space: pre-wrap; /* 保留换行 */
-            line-height: 1.6;
-            display: none;
-        }
-
-        .loading {
-            text-align: center;
-            margin-top: 20px;
-            display: none;
-            color: #666;
-        }
+        body { padding: 20px; font-family: sans-serif; line-height: 1.6; }
+        input, button { width: 100%; padding: 15px; margin-top: 10px; font-size: 16px; box-sizing: border-box; }
+        img { max-width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
+        #result { background: #f0f0f0; padding: 15px; margin-top: 15px; border-radius: 8px; white-space: pre-wrap; display: none; }
+        .error { color: red; background: #ffe6e6; padding: 10px; display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>🥗 AI 卡路里识别</h1>
-    <p class="subtitle">拍照上传，一键分析营养成分</p>
+    <h2>🥗 AI 卡路里识别 (修复版)</h2>
 
-    <div class="input-group">
-        <label for="api-key">第一步：输入 Google Gemini API Key</label>
-        <input type="password" id="api-key" placeholder="在此粘贴你的 API Key" value="">
-        <p style="font-size: 12px; color: #999; margin-top: 5px;">*Key 仅在本地使用，不会上传到我的服务器</p>
-    </div>
+    <label>步骤1：输入 API Key</label>
+    <input type="password" id="api-key" placeholder="粘贴你的 Key" value="">
 
-    <div class="input-group">
-        <label>第二步：拍照或上传图片</label>
-        <label for="file-upload" class="upload-btn">
-            📷 点击拍照 / 选择相册
-        </label>
-        <input type="file" id="file-upload" accept="image/*" capture="environment">
-    </div>
+    <hr>
 
-    <div class="preview-container" id="preview-container">
-        <img id="preview-img" src="" alt="预览图">
-    </div>
+    <label>步骤2：点击下方按钮拍照/选图</label>
+    <input type="file" id="file-upload" accept="image/*">
 
-    <button id="analyze-btn">🔍 开始分析热量</button>
+    <img id="preview-img" src="">
 
-    <div class="loading" id="loading">
-        ⏳ 正在分析食物成分...<br>(如果是第一次使用，可能需要几秒钟冷启动)
-    </div>
+    <hr>
 
-    <div class="result-box" id="result-box"></div>
-</div>
+    <button id="analyze-btn">🚀 开始分析</button>
+
+    <p id="status-text" style="color: #666;"></p>
+    <div id="result"></div>
+    <div id="error-box" class="error"></div>
 
 <script>
-    // 确保页面加载完成后再绑定事件
-    document.addEventListener('DOMContentLoaded', function() {
-        const fileInput = document.getElementById('file-upload');
-        const previewContainer = document.getElementById('preview-container');
-        const previewImg = document.getElementById('preview-img');
-        const analyzeBtn = document.getElementById('analyze-btn');
-        const resultBox = document.getElementById('result-box');
-        const loading = document.getElementById('loading');
-        const apiKeyInput = document.getElementById('api-key');
+    const fileInput = document.getElementById('file-upload');
+    const previewImg = document.getElementById('preview-img');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const statusText = document.getElementById('status-text');
+    const resultDiv = document.getElementById('result');
+    const errorBox = document.getElementById('error-box');
+    const apiKeyInput = document.getElementById('api-key');
 
-        let base64Image = "";
+    let base64Image = null;
+    let mimeType = null;
 
-        // 1. 处理图片选择
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    // 显示预览
-                    previewImg.src = e.target.result;
-                    previewContainer.style.display = 'block';
-                    analyzeBtn.style.display = 'block';
-                    resultBox.style.display = 'none';
-                    
-                    // 提取 Base64
-                    base64Image = e.target.result.split(',')[1];
-                    const mimeType = e.target.result.split(';')[0].split(':')[1];
-                    analyzeBtn.dataset.mime = mimeType;
-                }
-                
-                reader.readAsDataURL(file);
-            }
-        });
+    // 1. 监听图片选择
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        // 2. 调用 Gemini API
-        analyzeBtn.addEventListener('click', async function() {
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) {
-                alert("请先输入 API Key！");
-                return;
-            }
+        statusText.innerText = "正在读取图片...";
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // 显示预览
+            previewImg.src = e.target.result;
+            previewImg.style.display = "block";
+            statusText.innerText = "图片已就绪，请点击开始分析";
+            
+            // 准备数据
+            base64Image = e.target.result.split(',')[1];
+            mimeType = e.target.result.split(';')[0].split(':')[1];
+        };
+        reader.readAsDataURL(file);
+    });
 
-            // UI 状态更新
-            analyzeBtn.disabled = true;
-            loading.style.display = 'block';
-            resultBox.style.display = 'none';
-            resultBox.innerText = "";
+    // 2. 点击分析
+    analyzeBtn.addEventListener('click', async function() {
+        // 清空旧状态
+        resultDiv.style.display = "none";
+        errorBox.style.display = "none";
 
-            const mimeType = analyzeBtn.dataset.mime;
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            alert("请先填写 API Key");
+            return;
+        }
+        if (!base64Image) {
+            alert("请先选择一张图片");
+            return;
+        }
 
-            // 构建请求体
+        statusText.innerText = "⏳ 正在请求 AI 分析，请稍候...";
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerText = "分析中...";
+
+        try {
+            // 使用 gemini-1.5-flash，如果报错会自动降级逻辑不需要太复杂
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            
             const requestBody = {
                 contents: [{
                     parts: [
-                        { text: "请扮演一位专业的营养师。分析这张图片中的食物。请以友好的语气返回以下信息：\n1. **食物名称**\n2. **预估总热量** (kcal)\n3. **主要营养成分预估** (碳水/蛋白质/脂肪)\n4. **健康评价与建议** (简短建议)\n如果没有食物，请告知。" },
-                        {
-                            inline_data: {
-                                mime_type: mimeType,
-                                data: base64Image
-                            }
-                        }
+                        { text: "你是营养师。分析图片食物的：1.名称 2.热量 3.营养成分(碳水/蛋白/脂肪) 4.健康建议。" },
+                        { inline_data: { mime_type: mimeType, data: base64Image } }
                     ]
                 }]
             };
 
-            try {
-                // 修改点：这里使用了 gemini-1.5-flash-latest，兼容性更好
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
 
-                const data = await response.json();
+            const data = await response.json();
 
-                if (data.error) {
-                    // 如果还是报错，尝试降级提示
-                    if(data.error.message.includes("not found")) {
-                        throw new Error("模型未找到，请检查 API Key 或稍后重试。");
-                    }
-                    throw new Error(data.error.message);
-                }
-
-                // 解析结果
-                if (data.candidates && data.candidates[0].content) {
-                    const text = data.candidates[0].content.parts[0].text;
-                    resultBox.style.display = 'block';
-                    resultBox.innerHTML = markedParse(text);
-                } else {
-                    throw new Error("未获取到有效内容，请重试。");
-                }
-
-            } catch (error) {
-                alert("分析失败: " + error.message);
-                console.error(error);
-            } finally {
-                analyzeBtn.disabled = false;
-                loading.style.display = 'none';
+            if (data.error) {
+                throw new Error(data.error.message);
             }
-        });
 
-        // 简单的 Markdown 渲染
-        function markedParse(text) {
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // 粗体
-                .replace(/\n/g, '<br>'); // 换行
+            const text = data.candidates[0].content.parts[0].text;
+            resultDiv.innerText = text; // 显示结果
+            resultDiv.style.display = "block";
+            statusText.innerText = "✅ 分析完成";
+
+        } catch (err) {
+            errorBox.innerText = "出错了：" + err.message;
+            errorBox.style.display = "block";
+            statusText.innerText = "❌ 失败";
+            
+            // 如果是模型找不到，提示用户
+            if (err.message.includes("not found")) {
+                errorBox.innerText += "\n(建议：请检查 API Key 是否正确，或尝试稍后再试)";
+            }
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerText = "🚀 开始分析";
         }
     });
 </script>
