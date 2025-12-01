@@ -3,131 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卡路里识别 (稳定版)</title>
+    <title>卡路里识别 (诊断版)</title>
     <style>
-        body { padding: 20px; font-family: sans-serif; line-height: 1.6; background-color: #f4f4f9; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 15px; margin-top: 10px; font-size: 16px; box-sizing: border-box; border-radius: 8px; border: 1px solid #ddd; }
-        button { background-color: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; }
+        body { padding: 20px; font-family: sans-serif; background: #fffaf0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; }
+        input, button { width: 100%; padding: 15px; margin-top: 10px; box-sizing: border-box; border-radius: 8px; font-size: 16px; }
+        button { background-color: #ff9800; color: white; border: none; font-weight: bold; }
         button:disabled { background-color: #ccc; }
-        img { max-width: 100%; margin-top: 15px; border-radius: 8px; display: none; }
-        #result { background: #e8f5e9; padding: 15px; margin-top: 15px; border-radius: 8px; white-space: pre-wrap; display: none; color: #2e7d32; }
-        .error { color: #d32f2f; background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+        #debug-info { margin-top: 20px; padding: 10px; background: #333; color: #0f0; font-family: monospace; font-size: 12px; border-radius: 5px; display: none; white-space: pre-wrap; word-break: break-all; }
+        #result { margin-top: 15px; padding: 15px; background: #e0f2f1; border-radius: 8px; display: none; }
+        img { max-width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align: center; color: #333;">🥗 AI 卡路里识别</h2>
+    <h3>🔍 AI 卡路里识别 (最终调试)</h3>
     
-    <label>步骤1：输入 API Key</label>
-    <input type="password" id="api-key" placeholder="粘贴你的 Key" value="">
+    <label>API Key:</label>
+    <input type="password" id="api-key" placeholder="粘贴 Key..." value="">
 
-    <label style="margin-top: 20px; display:block;">步骤2：拍照/选图</label>
+    <label style="margin-top:15px; display:block;">选择图片:</label>
     <input type="file" id="file-upload" accept="image/*">
     <img id="preview-img" src="">
 
-    <button id="analyze-btn">🚀 开始分析</button>
+    <button id="analyze-btn">🚀 运行诊断并分析</button>
 
-    <p id="status-text" style="text-align: center; color: #666; margin-top: 10px;"></p>
     <div id="result"></div>
-    <div id="error-box" class="error"></div>
+    <div id="debug-info"></div>
 </div>
 
 <script>
     const fileInput = document.getElementById('file-upload');
     const previewImg = document.getElementById('preview-img');
     const analyzeBtn = document.getElementById('analyze-btn');
-    const statusText = document.getElementById('status-text');
+    const debugInfo = document.getElementById('debug-info');
     const resultDiv = document.getElementById('result');
-    const errorBox = document.getElementById('error-box');
     const apiKeyInput = document.getElementById('api-key');
 
     let base64Image = null;
     let mimeType = null;
 
-    // 图片处理
+    // 选图
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
         const reader = new FileReader();
         reader.onload = function(e) {
             previewImg.src = e.target.result;
             previewImg.style.display = "block";
             base64Image = e.target.result.split(',')[1];
             mimeType = e.target.result.split(';')[0].split(':')[1];
-            statusText.innerText = "图片已准备好";
         };
         reader.readAsDataURL(file);
     });
 
-    // 核心分析逻辑
+    // 核心函数
     analyzeBtn.addEventListener('click', async function() {
-        resultDiv.style.display = "none";
-        errorBox.style.display = "none";
-
         const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) { alert("请填入 API Key"); return; }
-        if (!base64Image) { alert("请先选图"); return; }
+        if (!apiKey) { alert("请填 Key"); return; }
+        if (!base64Image) { alert("请选图"); return; }
 
-        statusText.innerText = "正在尝试连接 AI (模型 1)...";
+        resultDiv.style.display = "none";
+        debugInfo.style.display = "block";
+        debugInfo.innerText = "⏳ 正在初始化...\n";
         analyzeBtn.disabled = true;
 
-        // 定义两个模型：首选 Flash-002，备用 Pro
-        const models = ['gemini-1.5-flash-002', 'gemini-pro'];
-        
-        let success = false;
-        let lastError = "";
+        try {
+            // 步骤 1: 尝试最通用的 gemini-1.5-flash
+            debugInfo.innerText += "1️⃣ 尝试模型: gemini-1.5-flash ...\n";
+            await runAnalysis("gemini-1.5-flash", apiKey);
 
-        // 循环尝试模型
-        for (const modelName of models) {
+        } catch (error) {
+            debugInfo.innerText += "❌ 失败: " + error.message + "\n\n";
+            
+            // 步骤 2: 如果失败，尝试 gemini-1.5-pro
             try {
-                if(modelName === 'gemini-pro') statusText.innerText = "模型1忙碌，正在切换备用模型...";
+                debugInfo.innerText += "2️⃣ 尝试模型: gemini-1.5-pro ...\n";
+                await runAnalysis("gemini-1.5-pro", apiKey);
+            } catch (error2) {
+                debugInfo.innerText += "❌ 失败: " + error2.message + "\n\n";
 
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-                
-                const requestBody = {
-                    contents: [{
-                        parts: [
-                            { text: "你是营养师。分析图片食物的：1.名称 2.热量 3.营养成分(碳水/蛋白/脂肪) 4.健康建议。" },
-                            { inline_data: { mime_type: mimeType, data: base64Image } }
-                        ]
-                    }]
-                };
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
-                });
-
-                const data = await response.json();
-
-                if (data.error) throw new Error(data.error.message);
-
-                // 成功！
-                const text = data.candidates[0].content.parts[0].text;
-                resultDiv.innerText = text;
-                resultDiv.style.display = "block";
-                statusText.innerText = "✅ 分析成功！";
-                success = true;
-                break; // 跳出循环
-
-            } catch (err) {
-                console.error(`${modelName} 失败:`, err);
-                lastError = err.message;
+                // 步骤 3: 绝招 - 查询可用模型列表
+                debugInfo.innerText += "3️⃣ 正在查询你的 Key 能用什么模型...\n";
+                await listAvailableModels(apiKey);
             }
+        } finally {
+            analyzeBtn.disabled = false;
         }
-
-        if (!success) {
-            errorBox.innerText = "所有模型尝试均失败。\n错误详情: " + lastError;
-            errorBox.style.display = "block";
-            statusText.innerText = "❌ 失败";
-        }
-
-        analyzeBtn.disabled = false;
     });
+
+    async function runAnalysis(modelName, apiKey) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const requestBody = {
+            contents: [{
+                parts: [
+                    { text: "分析图片中的食物名称、热量和营养成分。" },
+                    { inline_data: { mime_type: mimeType, data: base64Image } }
+                ]
+            }]
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        const text = data.candidates[0].content.parts[0].text;
+        resultDiv.innerText = "✅ 成功！\n\n" + text;
+        resultDiv.style.display = "block";
+        debugInfo.innerText += "🎉 成功连接模型：" + modelName;
+    }
+
+    async function listAvailableModels(apiKey) {
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            const data = await response.json();
+            
+            if (data.models) {
+                const names = data.models.map(m => m.name.replace('models/', ''));
+                debugInfo.innerText += "\n📋 你的账号可用模型列表:\n" + names.join("\n");
+                debugInfo.innerText += "\n\n⚠️ 请截图发给开发者，我们把列表里有的名字填进去就能好！";
+            } else {
+                debugInfo.innerText += "\n⚠️ 无法获取模型列表，可能是 Key 无效或网络问题。";
+                debugInfo.innerText += "\nAPI返回: " + JSON.stringify(data);
+            }
+        } catch (e) {
+            debugInfo.innerText += "\n网络错误: " + e.message;
+        }
+    }
 </script>
 
 </body>
