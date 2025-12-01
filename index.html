@@ -3,36 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>卡路里识别 (极简版)</title>
+    <title>卡路里识别 (稳定版)</title>
     <style>
-        body { padding: 20px; font-family: sans-serif; line-height: 1.6; }
-        input, button { width: 100%; padding: 15px; margin-top: 10px; font-size: 16px; box-sizing: border-box; }
-        img { max-width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
-        #result { background: #f0f0f0; padding: 15px; margin-top: 15px; border-radius: 8px; white-space: pre-wrap; display: none; }
-        .error { color: red; background: #ffe6e6; padding: 10px; display: none; }
+        body { padding: 20px; font-family: sans-serif; line-height: 1.6; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input, button { width: 100%; padding: 15px; margin-top: 10px; font-size: 16px; box-sizing: border-box; border-radius: 8px; border: 1px solid #ddd; }
+        button { background-color: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; }
+        button:disabled { background-color: #ccc; }
+        img { max-width: 100%; margin-top: 15px; border-radius: 8px; display: none; }
+        #result { background: #e8f5e9; padding: 15px; margin-top: 15px; border-radius: 8px; white-space: pre-wrap; display: none; color: #2e7d32; }
+        .error { color: #d32f2f; background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
     </style>
 </head>
 <body>
 
-    <h2>🥗 AI 卡路里识别 (修复版)</h2>
-
+<div class="container">
+    <h2 style="text-align: center; color: #333;">🥗 AI 卡路里识别</h2>
+    
     <label>步骤1：输入 API Key</label>
     <input type="password" id="api-key" placeholder="粘贴你的 Key" value="">
 
-    <hr>
-
-    <label>步骤2：点击下方按钮拍照/选图</label>
+    <label style="margin-top: 20px; display:block;">步骤2：拍照/选图</label>
     <input type="file" id="file-upload" accept="image/*">
-
     <img id="preview-img" src="">
-
-    <hr>
 
     <button id="analyze-btn">🚀 开始分析</button>
 
-    <p id="status-text" style="color: #666;"></p>
+    <p id="status-text" style="text-align: center; color: #666; margin-top: 10px;"></p>
     <div id="result"></div>
     <div id="error-box" class="error"></div>
+</div>
 
 <script>
     const fileInput = document.getElementById('file-upload');
@@ -46,90 +46,87 @@
     let base64Image = null;
     let mimeType = null;
 
-    // 1. 监听图片选择
+    // 图片处理
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-
-        statusText.innerText = "正在读取图片...";
         
         const reader = new FileReader();
         reader.onload = function(e) {
-            // 显示预览
             previewImg.src = e.target.result;
             previewImg.style.display = "block";
-            statusText.innerText = "图片已就绪，请点击开始分析";
-            
-            // 准备数据
             base64Image = e.target.result.split(',')[1];
             mimeType = e.target.result.split(';')[0].split(':')[1];
+            statusText.innerText = "图片已准备好";
         };
         reader.readAsDataURL(file);
     });
 
-    // 2. 点击分析
+    // 核心分析逻辑
     analyzeBtn.addEventListener('click', async function() {
-        // 清空旧状态
         resultDiv.style.display = "none";
         errorBox.style.display = "none";
 
         const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) {
-            alert("请先填写 API Key");
-            return;
-        }
-        if (!base64Image) {
-            alert("请先选择一张图片");
-            return;
-        }
+        if (!apiKey) { alert("请填入 API Key"); return; }
+        if (!base64Image) { alert("请先选图"); return; }
 
-        statusText.innerText = "⏳ 正在请求 AI 分析，请稍候...";
+        statusText.innerText = "正在尝试连接 AI (模型 1)...";
         analyzeBtn.disabled = true;
-        analyzeBtn.innerText = "分析中...";
 
-        try {
-            // 使用 gemini-1.5-flash，如果报错会自动降级逻辑不需要太复杂
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            
-            const requestBody = {
-                contents: [{
-                    parts: [
-                        { text: "你是营养师。分析图片食物的：1.名称 2.热量 3.营养成分(碳水/蛋白/脂肪) 4.健康建议。" },
-                        { inline_data: { mime_type: mimeType, data: base64Image } }
-                    ]
-                }]
-            };
+        // 定义两个模型：首选 Flash-002，备用 Pro
+        const models = ['gemini-1.5-flash-002', 'gemini-pro'];
+        
+        let success = false;
+        let lastError = "";
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
+        // 循环尝试模型
+        for (const modelName of models) {
+            try {
+                if(modelName === 'gemini-pro') statusText.innerText = "模型1忙碌，正在切换备用模型...";
 
-            const data = await response.json();
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                
+                const requestBody = {
+                    contents: [{
+                        parts: [
+                            { text: "你是营养师。分析图片食物的：1.名称 2.热量 3.营养成分(碳水/蛋白/脂肪) 4.健康建议。" },
+                            { inline_data: { mime_type: mimeType, data: base64Image } }
+                        ]
+                    }]
+                };
 
-            if (data.error) {
-                throw new Error(data.error.message);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error.message);
+
+                // 成功！
+                const text = data.candidates[0].content.parts[0].text;
+                resultDiv.innerText = text;
+                resultDiv.style.display = "block";
+                statusText.innerText = "✅ 分析成功！";
+                success = true;
+                break; // 跳出循环
+
+            } catch (err) {
+                console.error(`${modelName} 失败:`, err);
+                lastError = err.message;
             }
+        }
 
-            const text = data.candidates[0].content.parts[0].text;
-            resultDiv.innerText = text; // 显示结果
-            resultDiv.style.display = "block";
-            statusText.innerText = "✅ 分析完成";
-
-        } catch (err) {
-            errorBox.innerText = "出错了：" + err.message;
+        if (!success) {
+            errorBox.innerText = "所有模型尝试均失败。\n错误详情: " + lastError;
             errorBox.style.display = "block";
             statusText.innerText = "❌ 失败";
-            
-            // 如果是模型找不到，提示用户
-            if (err.message.includes("not found")) {
-                errorBox.innerText += "\n(建议：请检查 API Key 是否正确，或尝试稍后再试)";
-            }
-        } finally {
-            analyzeBtn.disabled = false;
-            analyzeBtn.innerText = "🚀 开始分析";
         }
+
+        analyzeBtn.disabled = false;
     });
 </script>
 
