@@ -3,78 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>错误诊断模式</title>
+    <title>卡路里识别 (万能切换版)</title>
     <style>
-        body { padding: 20px; font-family: monospace; background: #333; color: #0f0; }
-        .container { background: #000; padding: 20px; border: 1px solid #444; }
-        input, button { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
-        input[type="password"] { background: #222; border: 1px solid #555; color: white; }
-        input[type="file"] { background: #444; color: white; }
-        button { background: #d32f2f; color: white; font-weight: bold; border: none; font-size: 16px; }
-        #log-box { white-space: pre-wrap; word-break: break-all; margin-top: 20px; border-top: 1px dashed #666; padding-top: 10px; }
+        body { padding: 20px; font-family: -apple-system, sans-serif; background-color: #f5f5f7; }
+        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
+        
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        
+        /* 输入框 */
+        input[type="password"], select { 
+            width: 100%; padding: 12px; margin-bottom: 20px; 
+            border: 1px solid #ccc; border-radius: 8px; 
+            font-size: 16px; background: #fff; box-sizing: border-box;
+        }
+
+        /* 重点：原生上传按钮，丑但好用 */
+        input[type="file"] { 
+            width: 100%; padding: 10px; margin-bottom: 20px; 
+            background: #e1e1e1; border-radius: 8px; box-sizing: border-box;
+        }
+
+        button { 
+            width: 100%; padding: 15px; 
+            background-color: #007AFF; color: white; 
+            border: none; border-radius: 10px; 
+            font-size: 18px; font-weight: bold; cursor: pointer;
+        }
+        button:disabled { background-color: #ccc; }
+
+        #result { margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 10px; border-left: 5px solid #4CAF50; line-height: 1.6; display: none; }
+        #error-log { margin-top: 20px; padding: 10px; background: #ffebee; color: #c62828; border-radius: 8px; font-size: 14px; display: none; }
+        img { max-width: 100%; margin-top: 10px; border-radius: 8px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h3 style="margin-top:0;">🚑 深度诊断模式</h3>
+    <h2 style="text-align: center;">🥗 AI 卡路里识别</h2>
     
     <label>1. API Key:</label>
     <input type="password" id="api-key" placeholder="粘贴 Key...">
 
-    <label>2. 选图:</label>
+    <label>2. 选择 AI 模型 (关键!):</label>
+    <select id="model-select">
+        <option value="gemini-1.5-flash-001">Gemini 1.5 Flash-001 (推荐)</option>
+        <option value="gemini-1.5-flash-002">Gemini 1.5 Flash-002 (新版)</option>
+        <option value="gemini-flash-latest">Gemini Flash Latest (最新别名)</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro (备用)</option>
+        <option value="gemini-1.5-pro-001">Gemini 1.5 Pro-001 (旧版)</option>
+        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp (实验版)</option>
+    </select>
+
+    <label>3. 拍照/选图:</label>
     <input type="file" id="file-upload" accept="image/*">
-    <div id="img-status" style="color: yellow; margin-bottom: 10px;">未选图</div>
+    <img id="preview-img" src="">
 
-    <button id="analyze-btn">开始诊断 (显示真实报错)</button>
+    <button id="analyze-btn">🚀 开始分析</button>
 
-    <div id="log-box">等待运行...</div>
+    <div id="result"></div>
+    <div id="error-log"></div>
 </div>
 
 <script>
     const fileInput = document.getElementById('file-upload');
+    const previewImg = document.getElementById('preview-img');
     const analyzeBtn = document.getElementById('analyze-btn');
-    const logBox = document.getElementById('log-box');
+    const resultDiv = document.getElementById('result');
+    const errorLog = document.getElementById('error-log');
     const apiKeyInput = document.getElementById('api-key');
-    const imgStatus = document.getElementById('img-status');
+    const modelSelect = document.getElementById('model-select');
 
     let base64Image = null;
     let mimeType = null;
-
-    // 日志打印助手
-    function log(msg) {
-        logBox.innerHTML += msg + "\n----------------\n";
-    }
 
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewImg.style.display = 'block';
             base64Image = e.target.result.split(',')[1];
             mimeType = e.target.result.split(';')[0].split(':')[1];
-            imgStatus.innerText = "✅ 图片已加载: " + mimeType;
         }
         reader.readAsDataURL(file);
     });
 
     analyzeBtn.addEventListener('click', async function() {
         const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) { log("❌ 错误: 未填 API Key"); return; }
-        if (!base64Image) { log("❌ 错误: 未选图片"); return; }
+        const model = modelSelect.value; // 获取下拉菜单选中的模型
 
-        logBox.innerHTML = "🚀 开始向 Google 发送请求...\n";
+        if (!apiKey) { alert("请填 Key"); return; }
+        if (!base64Image) { alert("请选图"); return; }
+
+        // 重置界面
         analyzeBtn.disabled = true;
-
-        // 我们只测一个最稳的模型，看它报什么错
-        const modelName = "gemini-1.5-flash"; 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        analyzeBtn.innerText = "分析中...";
+        resultDiv.style.display = 'none';
+        errorLog.style.display = 'none';
 
         try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            
             const requestBody = {
                 contents: [{
                     parts: [
-                        { text: "test" }, // 发送最简单的测试文本
+                        { text: "你是营养师。分析食物：名称、热量、营养(碳水/蛋白/脂肪)及建议。中文回答。" },
                         { inline_data: { mime_type: mimeType, data: base64Image } }
                     ]
                 }]
@@ -88,19 +122,20 @@
 
             const data = await response.json();
 
-            // ★★★ 关键：无论成功失败，直接把后台返回的原始数据打印出来 ★★★
-            if (!response.ok || data.error) {
-                log("❌ 请求失败！");
-                log("状态码 (Status): " + response.status);
-                log("报错详情 (Error Details):\n" + JSON.stringify(data.error, null, 2));
-            } else {
-                log("✅ 神奇，竟然成功了！\n");
-                log(data.candidates[0].content.parts[0].text);
+            if (data.error) {
+                throw new Error(data.error.message);
             }
 
+            // 成功！
+            const text = data.candidates[0].content.parts[0].text;
+            resultDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+            resultDiv.style.display = 'block';
+            analyzeBtn.innerText = "✅ 成功";
+
         } catch (error) {
-            log("❌ 网络/代码层面的严重错误:");
-            log(error.message);
+            errorLog.innerText = `❌ 模型 [${model}] 失败:\n${error.message}\n\n👉 建议：请在上方下拉菜单换一个模型再试！`;
+            errorLog.style.display = 'block';
+            analyzeBtn.innerText = "❌ 失败，请换模型";
         } finally {
             analyzeBtn.disabled = false;
         }
